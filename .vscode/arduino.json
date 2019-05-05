@@ -1,6 +1,0 @@
-{
-    "board": "espressif:esp32:m5stack-fire",
-    "configuration": "PSRAM=enabled,PartitionScheme=default,UploadSpeed=921600,DebugLevel=none",
-    "port": "COM10",
-    "sketch": "M5Stack_Tetris.ino"
-}
