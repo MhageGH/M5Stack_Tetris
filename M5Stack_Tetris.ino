@@ -8,8 +8,10 @@
 //========================================================================
 #include <M5Stack.h> // M5STACK
 #include "I2S.h"
-char data[8192];
+#include "tetris_wav.h"
+char data[1024];
 File file;
+unsigned long wavePos;
 
 uint16_t BlockImage[8][12][12];  // Block
 uint16_t backBuffer[240][120];   // GAME AREA
@@ -74,9 +76,10 @@ void setup(void)
   for (int i = 0; i < 4; ++i)
     screen[pos.X +
            block.square[rot][i].X][pos.Y + block.square[rot][i].Y] = block.color;
-  Draw();                        // Draw block
-  file = SD.open("/tetris.wav"); // 44100Hz, 16bit, stereo, linear PCM
-  file.seek(0x2C);
+  Draw(); // Draw block
+  // file = SD.open("/tetris.wav"); // 44100Hz, 16bit, stereo, linear PCM
+  // file.seek(0x2C);
+  wavePos = 0x2C;
   I2S_Init();
 }
 //========================================================================
@@ -90,13 +93,37 @@ void loop()
   ReviseScreen(next_pos, next_rot);
   M5.update();
   //delay(game_speed); // SPEED ADJUST
-  if (file.readBytes(data, sizeof(data)))
+  // if (file.readBytes(data, sizeof(data)))
+  // {
+  //   Adjust(0.3f);
+  //   I2S_Write(data, sizeof(data));
+  // }
+  // else
+  //   file.seek(0x2C);
+  if (wavePos < sizeof(tetris_wav))
   {
-    Adjust(0.3f);
-    I2S_Write(data, sizeof(data));
+    int n = (sizeof(data) / 8 < sizeof(tetris_wav) - wavePos) ? sizeof(data) / 8 : sizeof(tetris_wav) - wavePos;
+    for (int i = 0; i < n; ++i)
+    {
+      byte d0 = tetris_wav[wavePos + i];
+      byte d2 = (wavePos + i + 1 < sizeof(tetris_wav)) ? tetris_wav[wavePos + i + 1] : tetris_wav[wavePos + i];
+      byte d1 = d0 / 2 + d2 / 2;
+      data[8 * i] = 0;
+      data[8 * i + 1] = d0;
+      data[8 * i + 2] = 0;
+      data[8 * i + 3] = d0;
+      data[8 * i + 4] = 0;
+      data[8 * i + 5] = d1;
+      data[8 * i + 6] = 0;
+      data[8 * i + 7] = d1;
+    }
+    wavePos += n;
+    I2S_Write(data, n * 8);
   }
   else
-    file.seek(0x2C);
+  {
+    wavePos = 0x2C;
+  }
 }
 //========================================================================
 void Draw()
