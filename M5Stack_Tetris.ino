@@ -7,8 +7,12 @@
 // Github     : https://macsbug.wordpress.com/2018/01/20/tetris-with-m5stack/
 //========================================================================
 #include <M5Stack.h> // M5STACK
+#include <Lcd_dma.h>
+#include "Picture.h"
 #include "I2S.h"
 #include "tetris_wav.h"
+
+Lcd_dma *lcd_dma;
 char soundBuffer[1024];
 unsigned long wavePos;
 
@@ -45,9 +49,6 @@ extern uint8_t tetris_img[];
 //========================================================================
 void setup(void)
 {
-  M5.begin();                // M5STACK INITIALIZE
-  M5.Lcd.setBrightness(200); // BRIGHTNESS = MAX 255
-  M5.Lcd.fillScreen(BLACK);  // CLEAR SCREEN
   //----------------------------// Make Block ----------------------------
   make_block(0, BLACK);  // Type No, Color
   make_block(1, 0x00F0); // DDDD     RED
@@ -58,9 +59,23 @@ void setup(void)
   make_block(6, 0xF00F); // _DD,DD_  LIGHT GREEN
   make_block(7, 0xF8FC); // _D_,DDD  PINK
   //----------------------------------------------------------------------
-  // M5.Lcd.drawJpgFile(SD, "/tetris.jpg");     // Load background from SD
-  M5.Lcd.drawJpg(tetris_img, 34215); // Load background from file data
-  PutStartPos();                     // Start Position
+  int w = 320, h = 10;
+  lcd_dma = new Lcd_dma(w, h);
+  lcd_dma->SetBrightness(20);
+  lcd_dma->fillScreen(0);
+  uint16_t *framebuffer;
+  for (int k = 0; k < 240 / h; ++k)
+  {
+    framebuffer = lcd_dma->GetFramebuffer();
+    for (int i = 0; i < lcd_dma->GetHeight(); ++i)
+      for (int j = 0; j < lcd_dma->GetWidth(); ++j)
+        framebuffer[lcd_dma->GetWidth() * i + j] = picture[k * h + i][j];
+    lcd_dma->Flip(0, k * h);
+  }
+  w = 120;
+  h = 240;
+  lcd_dma->SetSize(w, h);
+  PutStartPos(); // Start Position
   for (int i = 0; i < 4; ++i)
     screen[pos.X +
            block.square[rot][i].X][pos.Y + block.square[rot][i].Y] = block.color;
@@ -103,7 +118,12 @@ void Draw()
       for (int k = 0; k < Length; ++k)
         for (int l = 0; l < Length; ++l)
           backBuffer[j * Length + l][i * Length + k] = BlockImage[screen[i][j]][k][l];
-  M5.Lcd.drawBitmap(100, 0, 120, 240, (uint8_t *)backBuffer);
+  uint16_t *framebuffer;
+  framebuffer = lcd_dma->GetFramebuffer();
+  for (int i = 0; i < lcd_dma->GetHeight(); ++i)
+    for (int j = 0; j < lcd_dma->GetWidth(); ++j)
+      framebuffer[lcd_dma->GetWidth() * i + j] = backBuffer[i][j];
+  lcd_dma->Flip(100, 0);
 }
 //========================================================================
 void PutStartPos()
