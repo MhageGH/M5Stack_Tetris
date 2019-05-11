@@ -13,8 +13,6 @@
 #include "tetris_wav.h"
 
 Lcd_dma *lcd_dma;
-char soundBuffer[1024];
-unsigned long wavePos;
 
 uint16_t BlockImage[8][12][12];  // Block
 uint16_t backBuffer[240][120];   // GAME AREA
@@ -80,7 +78,6 @@ void setup(void)
     screen[pos.X +
            block.square[rot][i].X][pos.Y + block.square[rot][i].Y] = block.color;
   Draw(); // Draw block
-  wavePos = 0x2C;
   I2S_Init();
 }
 //========================================================================
@@ -94,21 +91,11 @@ void loop()
   ReviseScreen(next_pos, next_rot);
   M5.update();
   delay(game_speed); // SPEED ADJUST
-  if (wavePos < sizeof(tetris_wav))
-  {
-    int n = (sizeof(soundBuffer) / 2 < sizeof(tetris_wav) - wavePos) ? sizeof(soundBuffer) / 2 : sizeof(tetris_wav) - wavePos;
-    for (int i = 0; i < n; ++i)
-    {
-      soundBuffer[2 * i] = 0;
-      soundBuffer[2 * i + 1] = tetris_wav[wavePos + i];
-    }
-    wavePos += n;
-    I2S_Write(soundBuffer, n * 2);
-  }
-  else
-  {
-    wavePos = 0x2C;
-  }
+  const int waveStartPos = 0x2C, transUnit = 512;
+  static unsigned long wavePos = waveStartPos;
+  int n = (transUnit < sizeof(tetris_wav) - wavePos) ? transUnit : sizeof(tetris_wav) - wavePos;
+  I2S_Write((char *)(&tetris_wav[wavePos]), n);
+  wavePos = (wavePos < sizeof(tetris_wav)) ? wavePos + n : waveStartPos;
 }
 //========================================================================
 void Draw()
