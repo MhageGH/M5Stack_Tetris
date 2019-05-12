@@ -9,8 +9,10 @@
 #include <M5Stack.h> // M5STACK
 #include <Lcd_dma.h>
 #include "Picture.h"
-#include "I2S.h"
-#include "tetris_wav.h"
+#include "BGM.h"
+
+const int render_period = 25;
+const int fall_attenuation = 10; // block fall period = render_period * fall_attenuation
 
 Lcd_dma *lcd_dma;
 
@@ -34,7 +36,6 @@ Block block;
 int rot, fall_cnt = 0;
 bool started = false, gameover = false;
 boolean but_A = false, but_LEFT = false, but_RIGHT = false;
-int game_speed = 25; // 25msec
 Block blocks[7] = {
     {{{{-1, 0}, {0, 0}, {1, 0}, {2, 0}}, {{0, -1}, {0, 0}, {0, 1}, {0, 2}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}}, 2, 1},
     {{{{0, -1}, {1, -1}, {0, 0}, {1, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}, {{0, 0}, {0, 0}, {0, 0}, {0, 0}}}, 1, 2},
@@ -78,7 +79,7 @@ void setup(void)
     screen[pos.X +
            block.square[rot][i].X][pos.Y + block.square[rot][i].Y] = block.color;
   Draw(); // Draw block
-  I2S_Init();
+  BGM_Start();
 }
 //========================================================================
 void loop()
@@ -90,12 +91,7 @@ void loop()
   GetNextPosRot(&next_pos, &next_rot);
   ReviseScreen(next_pos, next_rot);
   M5.update();
-  delay(game_speed); // SPEED ADJUST
-  const int waveStartPos = 0x2C, transUnit = 512;
-  static unsigned long wavePos = waveStartPos;
-  int n = (transUnit < sizeof(tetris_wav) - wavePos) ? transUnit : sizeof(tetris_wav) - wavePos;
-  I2S_Write((char *)(&tetris_wav[wavePos]), n);
-  wavePos = (wavePos < sizeof(tetris_wav)) ? wavePos + n : waveStartPos;
+  delay(render_period);
 }
 //========================================================================
 void Draw()
@@ -141,7 +137,7 @@ void GameOver()
     for (int j = 0; j < Height; ++j)
       if (screen[i][j] != 0)
         screen[i][j] = 4;
-  I2S_Stop();
+  BGM_Stop();
   gameover = true;
 }
 //========================================================================
@@ -184,7 +180,7 @@ void GetNextPosRot(Point *pnext_pos, int *pnext_rot)
     return;
   pnext_pos->X = pos.X;
   pnext_pos->Y = pos.Y;
-  if ((fall_cnt = (fall_cnt + 1) % 10) == 0)
+  if ((fall_cnt = (fall_cnt + 1) % fall_attenuation) == 0)
     pnext_pos->Y += 1;
   else if (received)
   {
